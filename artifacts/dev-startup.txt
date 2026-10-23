@@ -1,0 +1,4 @@
+Electron 开发进程运行正常；Vite http://127.0.0.1:5173/ 返回项目 HTML。
+  ➜  Local:   http://127.0.0.1:5173/
+
+12:17:21 [vite] (client) [optimizer] scanning dependencies...
