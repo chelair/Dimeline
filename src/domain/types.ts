@@ -1,6 +1,8 @@
+import type { WorkTask, WorkSpace } from './work';
 export type Level = 1 | 2 | 3 | 4;
 export type Side = 'above' | 'below';
 export interface Milestone {
+  work?: WorkTask;
   id: string;
   title: string;
   date: string;
@@ -37,6 +39,7 @@ export interface Link {
   enabled: boolean;
 }
 export interface Project {
+  workspace?: WorkSpace;
   id: string;
   title: string;
   startDate: string;
@@ -80,6 +83,13 @@ export interface OpenedFile {
   warnings: string[];
 }
 export interface DesktopAPI {
+  getAssistantSettings(): Promise<{ endpoint: string; model: string; hasKey: boolean }>;
+  saveAssistantSettings(settings: {
+    endpoint: string;
+    model: string;
+    key: string;
+  }): Promise<Result<null>>;
+  askAssistant(text: string, context: string): Promise<Result<string>>;
   openProject(path?: string): Promise<Result<OpenedFile>>;
   saveProject(project: Project, saveAs?: boolean): Promise<Result<{ path: string }>>;
   exportPng(data: Uint8Array, title: string): Promise<Result<{ path: string }>>;

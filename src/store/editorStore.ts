@@ -3,6 +3,9 @@ import { createMilestone, createProject, uid } from '../domain/defaults';
 import type { Milestone, Project } from '../domain/types';
 import { changeDate } from '../engine/constraintEngine';
 import { fingerprint, validateProject } from '../services/serialization';
+import { appendManualAudit } from '../engine/workEngine';
+import { emptyWorkspace } from '../domain/work';
+import type { WorkProposal } from '../domain/work';
 export interface HistoryEntry {
   project: Project;
   label: string;
@@ -37,6 +40,8 @@ interface EditorState {
   duplicate(): void;
   update(id: string, patch: Partial<Milestone>): boolean;
   markSaved(p: Project, path: string): void;
+  setReportDraft(text: string): void;
+  setProposalDraft(draft: WorkProposal | null): void;
   notify(message: string, kind?: 'info' | 'error'): void;
 }
 const initial = createProject();
@@ -76,7 +81,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (get().transaction) return false;
     try {
       const old = get().project;
-      const p = transform(structuredClone(old));
+      const p = appendManualAudit(old, transform(structuredClone(old)), label);
       validateProject(p);
       if (fingerprint(p) === fingerprint(old)) return true;
       set({ project: p, past: [...get().past, { project: old, label }].slice(-100), future: [] });
@@ -97,6 +102,11 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (!transaction) return;
     if (fingerprint(project) !== fingerprint(transaction.project))
       set({
+        project: appendManualAudit(
+          transaction.project,
+          structuredClone(project),
+          transaction.label,
+        ),
         past: [...past, { project: transaction.project, label: transaction.label }].slice(-100),
         future: [],
         transaction: null,
@@ -116,7 +126,21 @@ export const useEditor = create<EditorState>((set, get) => ({
     const item = past.at(-1);
     if (!item) return;
     set({
-      project: item.project,
+      project: appendManualAudit(
+        project,
+        {
+          ...structuredClone(item.project),
+          ...(project.workspace
+            ? {
+                workspace: {
+                  ...(item.project.workspace ?? emptyWorkspace()),
+                  audits: project.workspace.audits,
+                },
+              }
+            : {}),
+        },
+        `撤销：${item.label}`,
+      ),
       past: past.slice(0, -1),
       future: [...future, { project, label: item.label }],
       selectedId: null,
@@ -128,7 +152,21 @@ export const useEditor = create<EditorState>((set, get) => ({
     const item = future.at(-1);
     if (!item) return;
     set({
-      project: item.project,
+      project: appendManualAudit(
+        project,
+        {
+          ...structuredClone(item.project),
+          ...(project.workspace
+            ? {
+                workspace: {
+                  ...(item.project.workspace ?? emptyWorkspace()),
+                  audits: project.workspace.audits,
+                },
+              }
+            : {}),
+        },
+        `重做：${item.label}`,
+      ),
       future: future.slice(0, -1),
       past: [...past, { project, label: item.label }],
       selectedId: null,
@@ -184,11 +222,45 @@ export const useEditor = create<EditorState>((set, get) => ({
       const next = patch.date ? changeDate(p, id, patch.date) : p;
       return {
         ...next,
-        milestones: next.milestones.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+        milestones: next.milestones.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                ...patch,
+                ...(m.work && patch.completed !== undefined
+                  ? {
+                      work: {
+                        ...m.work,
+                        status: patch.completed ? ('done' as const) : ('todo' as const),
+                        progress: patch.completed ? 100 : 0,
+                        estimated: false,
+                      },
+                    }
+                  : {}),
+              }
+            : m,
+        ),
       };
     }),
   markSaved: (p, path) =>
     set({ savedFingerprint: fingerprint(p), path, fileRevision: get().fileRevision + 1 }),
+  setReportDraft: (reportDraft) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        workspace: { ...(state.project.workspace ?? emptyWorkspace()), reportDraft },
+      },
+    })),
+  setProposalDraft: (pendingProposal) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        workspace: {
+          ...(state.project.workspace ?? emptyWorkspace()),
+          pendingProposal: pendingProposal ?? undefined,
+        },
+      },
+    })),
   notify: (notice, noticeKind = 'info') => set({ notice, noticeKind }),
 }));
 export const isDirty = (state: Pick<EditorState, 'project' | 'savedFingerprint' | 'drafts'>) =>

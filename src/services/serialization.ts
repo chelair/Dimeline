@@ -2,7 +2,9 @@ import { createMilestone, createProject, uid } from '../domain/defaults';
 import type { Link, Milestone, Project } from '../domain/types';
 import { dayNumber } from '../engine/dateEngine';
 import { reconcileLinks, validateConstraints } from '../engine/constraintEngine';
-export const SCHEMA_VERSION = 1;
+import { validateWork } from '../engine/workEngine';
+import type { WorkSpace, WorkTask } from '../domain/work';
+export const SCHEMA_VERSION = 2;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const record = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -39,6 +41,7 @@ export function validateProject(p: Project): void {
       throw new Error('关联间隔无效');
   }
   validateConstraints(p);
+  validateWork(p);
 }
 export function deserialize(text: string): { project: Project; warnings: string[] } {
   if (new TextEncoder().encode(text).length > MAX_FILE_BYTES)
@@ -72,6 +75,9 @@ export function deserialize(text: string): { project: Project; warnings: string[
     mainLine: { color: color(line.color, '#C7000B'), width: num(line.width, 3, 1, 10) },
     milestones: [],
     links: [],
+    ...(raw.workspace !== undefined
+      ? { workspace: record(raw.workspace) as unknown as WorkSpace }
+      : {}),
   };
   const ids = new Set<string>();
   const oldNodes: Record<string, unknown>[] = [];
@@ -124,6 +130,7 @@ export function deserialize(text: string): { project: Project; warnings: string[
         r.layout === 'manual' || r.manualOffsetX !== undefined || r.manualOffsetY !== undefined
           ? 'manual'
           : 'auto',
+      ...(r.work !== undefined ? { work: record(r.work) as unknown as WorkTask } : {}),
     };
     if (r.bendPoint !== undefined)
       warnings.push(`“${m.title}”的旧折点已转为自动正交路由，手动框体偏移已保留`);
@@ -196,7 +203,7 @@ export function serialize(p: Project): string {
     {
       schemaVersion: SCHEMA_VERSION,
       project: p,
-      metadata: { application: 'Dimeline', appVersion: '1.0.0' },
+      metadata: { application: 'Dimeline', appVersion: '1.1.0' },
     },
     null,
     2,

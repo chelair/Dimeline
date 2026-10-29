@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { DesktopAPI } from '../src/domain/types';
 const api: DesktopAPI = {
+  getAssistantSettings: () => ipcRenderer.invoke('assistant:settings'),
+  saveAssistantSettings: (settings) => ipcRenderer.invoke('assistant:configure', settings),
+  askAssistant: (text, context) => ipcRenderer.invoke('assistant:parse', text, context),
   openProject: (path) => ipcRenderer.invoke('project:open', path),
   saveProject: (project, saveAs) => ipcRenderer.invoke('project:save', project, !!saveAs),
   exportPng: (data, title) => ipcRenderer.invoke('image:export', data, title),

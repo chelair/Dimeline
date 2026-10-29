@@ -17,11 +17,14 @@ import { Toolbar } from './components/toolbar/Toolbar';
 import { PropertyPanel } from './components/panels/PropertyPanel';
 import { RecentPanel } from './components/panels/RecentPanel';
 import { Button } from './components/common/Controls';
+import { Workbench } from './components/work/Workbench';
+import './styles/work.css';
 export default function App() {
   const s = useEditor();
   const [commands, setCommands] = useState<CanvasCommands | null>(null);
   const [help, setHelp] = useState(false);
-  const [version, setVersion] = useState('1.0.0');
+  const [view, setView] = useState<'timeline' | 'work'>('timeline');
+  const [version, setVersion] = useState('1.1.0');
   useKeyboard();
   const register = useCallback((c: CanvasCommands) => setCommands(c), []);
   useEffect(() => {
@@ -46,38 +49,51 @@ export default function App() {
   return (
     <div className="app">
       <Toolbar commands={commands} onHelp={() => setHelp(true)} />
-      <main className="workspace">
-        <nav className="activity-rail">
-          <Button title="时间线画布" className="active" onClick={() => s.select(null)}>
-            <Network size={19} />
-          </Button>
-          <Button
-            title="最近文件"
-            className={s.showRecent ? 'active' : ''}
-            onClick={() => useEditor.setState({ showRecent: !s.showRecent })}
-          >
-            <History size={19} />
-          </Button>
-          <div className="rail-spacer" />
-          <Button title="操作帮助" onClick={() => setHelp(true)}>
-            <Keyboard size={18} />
-          </Button>
-        </nav>
-        {s.showRecent && <RecentPanel />}
-        <TimelineCanvas onCommands={register} />
-        <div className={`property-drawer ${s.showProperties ? 'open' : ''}`}>
-          {s.showProperties && <PropertyPanel commands={commands} />}
-        </div>
-        {!s.showProperties && (
-          <button
-            className="reopen-panel"
-            title="展开属性面板"
-            onClick={() => useEditor.setState({ showProperties: true })}
-          >
-            <PanelRightOpen size={16} />
-          </button>
-        )}
-      </main>
+      <nav className="view-switch" aria-label="工作视图">
+        <Button className={view === 'timeline' ? 'active' : ''} onClick={() => setView('timeline')}>
+          时间线
+        </Button>
+        <Button className={view === 'work' ? 'active' : ''} onClick={() => setView('work')}>
+          任务线与秘书
+        </Button>
+        <span>一个产品项目 · 两种视角 · 同一份计划</span>
+      </nav>
+      {view === 'work' ? (
+        <Workbench key={s.project.id} onTimeline={() => setView('timeline')} />
+      ) : (
+        <main className="workspace">
+          <nav className="activity-rail">
+            <Button title="时间线画布" className="active" onClick={() => s.select(null)}>
+              <Network size={19} />
+            </Button>
+            <Button
+              title="最近文件"
+              className={s.showRecent ? 'active' : ''}
+              onClick={() => useEditor.setState({ showRecent: !s.showRecent })}
+            >
+              <History size={19} />
+            </Button>
+            <div className="rail-spacer" />
+            <Button title="操作帮助" onClick={() => setHelp(true)}>
+              <Keyboard size={18} />
+            </Button>
+          </nav>
+          {s.showRecent && <RecentPanel />}
+          <TimelineCanvas onCommands={register} />
+          <div className={`property-drawer ${s.showProperties ? 'open' : ''}`}>
+            {s.showProperties && <PropertyPanel commands={commands} />}
+          </div>
+          {!s.showProperties && (
+            <button
+              className="reopen-panel"
+              title="展开属性面板"
+              onClick={() => useEditor.setState({ showProperties: true })}
+            >
+              <PanelRightOpen size={16} />
+            </button>
+          )}
+        </main>
+      )}
       <footer className="statusbar">
         <div>
           <span>

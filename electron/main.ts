@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import type { Project, Result } from '../src/domain/types';
 import { atomicWrite, readProject, writeProject } from './services/fileService';
 import { RecentFilesService } from './services/recentFilesService';
+import { AssistantService } from './services/assistantService';
 let win: BrowserWindow;
 let currentPath: string | null = null;
 let dirty = false;
@@ -43,6 +44,10 @@ async function confirmReplace(): Promise<'save' | 'discard' | 'cancel'> {
 async function bootstrap() {
   const recents = new RecentFilesService(path.join(app.getPath('userData'), 'recent-files.json'));
   await recents.init();
+  const assistant = new AssistantService(
+    path.join(app.getPath('userData'), 'assistant-settings.json'),
+  );
+  await assistant.init();
   win = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -70,6 +75,9 @@ async function bootstrap() {
       return fn(...args);
     });
   handle('app:version', async () => app.getVersion());
+  handle('assistant:settings', async () => assistant.publicSettings());
+  handle('assistant:configure', async (settings) => guard(() => assistant.configure(settings)));
+  handle('assistant:parse', async (text, context) => guard(() => assistant.parse(text, context)));
   handle('recent:list', async () => recents.list());
   handle('recent:remove', async (target) => {
     if (typeof target !== 'string' || !recents.has(target)) return recents.list();

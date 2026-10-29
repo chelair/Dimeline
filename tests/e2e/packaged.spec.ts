@@ -41,7 +41,17 @@ test('Windows 打包程序真实启动、安全隔离和本地保存', async () 
     expect(JSON.parse(await fs.readFile(file, 'utf8')).project.milestones[0].title).toBe(
       '打包程序保存验证',
     );
-    await page.screenshot({ path: 'artifacts/packaged-verified.png' });
+    await page.getByRole('button', { name: '任务线与秘书', exact: true }).click();
+    await page.getByText('将原时间线事件加入任务管理', { exact: true }).click();
+    await page.getByRole('button', { name: '打包程序保存验证 ＋', exact: true }).click();
+    await page.getByRole('button', { name: '确认执行', exact: true }).click();
+    await expect(page.locator('.work-graph-node')).toHaveCount(1);
+    await page.getByRole('button', { name: '保存项目（Ctrl+S）', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('项目已保存');
+    expect(JSON.parse(await fs.readFile(file, 'utf8')).project.milestones[0].work.status).toBe(
+      'todo',
+    );
+    await page.screenshot({ path: 'artifacts/workbench-packaged.png' });
   } finally {
     await app
       .evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.destroy()))
